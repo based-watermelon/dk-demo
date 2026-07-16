@@ -11,7 +11,13 @@ screen = pygame.display.set_mode((W_WIDTH, W_HEIGHT))
 pygame.display.set_caption("Barrel-ly Learning")
 clock = pygame.time.Clock()
 
-sprites=["assets/mario.png","assets/mariob.png","assets/marioh.png"]
+sprites=[
+    "assets/mario.png","assets/marion.png","assets/marioj.png",
+    "assets/mariorev.png","assets/marionrev.png","assets/mariojrev.png",
+    "assets/mariob.png","assets/mariost.png","assets/mariostrev.png",
+    "assets/mariostend.png","assets/mariostendrev.png","assets/dk.png",
+    "assets/dkb.png","assets/phelp.png","assets/plove.png",
+    "assets/marioll.png","assets/marioh.png","assets/lotsofbarrels.png"]
 
 
 # Bridge
@@ -29,14 +35,22 @@ bridge_rect6 = bridge.get_frect(topleft=(0, 180))
 
 bridges = [bridge_rect1, bridge_rect2, bridge_rect3, bridge_rect4, bridge_rect5, bridge_rect6]
 
-
-# Mario
-#mario = pygame.Surface((30, 40))
-mario = pygame.transform.scale(pygame.image.load(sprites[0]).convert_alpha(),(30,40))
+#Characters
+    # Mario
+    #mario = pygame.Surface((30, 40))
+mario = pygame.transform.scale(pygame.image.load(sprites[1]).convert_alpha(),(30,40))
 mario_rect = mario.get_frect(bottomleft=(50, 580))
-mario_gravity = 0
-mario_direction= pygame.math.Vector2()
-mario_speed= 200
+gravity=0
+# mario_direction= pygame.math.Vector2()
+# mario_speed= 200
+mario_velocity= pygame.math.Vector2()
+
+    #donkeykong
+dk = pygame.transform.scale(pygame.image.load(sprites[11],(60,80)))
+princess = pygame.transform.scale(pygame.image.load(sprites[13],(30,40)))
+
+
+#functions
 
 
 # Ladders
@@ -58,16 +72,16 @@ while running:
 
 
        # Jump
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE and mario_rect.collidelist(bridges) != -1:
-                mario_gravity = -15
+        # if event.type == pygame.KEYDOWN:
+        #     if event.key == pygame.K_SPACE and mario_rect.collidelist(bridges) != -1:
+        #         mario_gravity = -15
 
 
    # input
         #on bridge
     keys = pygame.key.get_pressed()
 
-    mario_direction.x= int(keys[pygame.K_RIGHT]) - int(keys[pygame.K_LEFT]) #horizontal movement
+    mario_velocity.x= 200*(int(keys[pygame.K_RIGHT]) - int(keys[pygame.K_LEFT])) #horizontal movement
 
 
    #vertical movement
@@ -75,24 +89,24 @@ while running:
 
         # On ladder
     on_ladder = mario_rect.collidelist(ladders) != -1
-
+    on_bridge = mario_rect.collidelist(bridges) != -1
 
     if on_ladder:
-        mario_gravity = 0
-        mario_direction.y= int(keys[pygame.K_DOWN]) - int(keys[pygame.K_UP])
+        mario_velocity.y = 150*(int(keys[pygame.K_DOWN]) - int(keys[pygame.K_UP]))
+        gravity=0
+    elif on_bridge:
+        mario_velocity.y=0
+        gravity=0
     else:
-        mario_gravity += 1
-        mario_rect.y += mario_gravity
-
-    #updating mario using direction and speed
-    mario_rect.center += mario_direction*mario_speed*dt
-
+        gravity+=8
+        mario_velocity.y = gravity
 
    # Keep mario on the bridge
-    if mario_rect.collidelist(bridges) != -1:
+    if not on_ladder and on_bridge:
         mario_rect.bottom = bridges[mario_rect.collidelist(bridges)].top
-        mario_gravity = 0
-
+        
+    #updating mario using velocity
+    mario_rect.center += mario_velocity*dt
 
    # Draw everything
     screen.fill((20, 20, 20))
@@ -110,7 +124,7 @@ while running:
 
 
     pygame.display.update()
-    clock.tick(60)
+    
 
 
 pygame.quit()
