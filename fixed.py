@@ -4,7 +4,7 @@ import random
 class Mario(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
-        self.image = pygame.image.load("mario.png").convert_alpha()
+        self.image = pygame.image.load("assets/mario.png").convert_alpha()
         self.image.set_colorkey((0, 0, 0))  # Set white as the transparent color
         self.rect = self.image.get_rect(bottomleft=(50, 580))
         self.gravity = 0
