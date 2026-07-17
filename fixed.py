@@ -49,17 +49,11 @@ class Barrel(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(topleft=(x, y))
 
     #def animation_state(self):
-    """
-    def spawn_barrel():
-        x = 800
-        y = random.randint(100, 500)
-        new_barrel = Barrel(x, y)
-        all_barrels.add(new_barrel)
-    """
+    
     def update(self):
         self.gravity = 1  # Simulate gravity for the barrel
+        self.check_collision_with_ladders()
         self.check_collision_with_bridges()
-        #self.check_collision_with_ladders()
         #self.destroy_if_off_screen()
     
     def check_collision_with_bridges(self):
@@ -76,8 +70,7 @@ class Barrel(pygame.sprite.Sprite):
         ladder_index = self.rect.collidelist(ladders)
         if ladder_index != -1:
             self.rect.y += 1  # Adjust position to simulate falling down the ladder
-        else:
-            self.rect.y += 1  # Simulate gravity when not on a ladder
+            self.rect.x = ladders[ladder_index].x  # Keep the barrel aligned with the ladder
    
 
 pygame.init()
@@ -111,20 +104,19 @@ mario = pygame.sprite.GroupSingle()
 mario.add(Mario())
 all_barrels = pygame.sprite.Group()
 
-"""
+
 # Timer for spawning barrels
 SPAWN_BARREL_EVENT = pygame.USEREVENT + 1
 pygame.time.set_timer(SPAWN_BARREL_EVENT, 2000)  # Spawn a barrel every 2 seconds
-"""
 
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             exit()
-        
-        new_barrel = Barrel(100, 100)
-        all_barrels.add(new_barrel)
+        if event.type == SPAWN_BARREL_EVENT:
+            new_barrel = Barrel(100, 100)
+            all_barrels.add(new_barrel)
         
     screen.fill((20, 20, 20))
 
