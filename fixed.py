@@ -143,7 +143,8 @@ while True:
     screen.fill((20, 20, 20))
 
     for bridge_rect in bridges:
-        screen.blit(bridge, bridge_rect)
+        #screen.blit(bridge, bridge_rect)
+        pygame.draw.rect(screen, (250, 0, 0), bridge_rect)  # Draw Bridges
     for ladder_rect in ladders:
         pygame.draw.rect(screen, (139, 69, 19), ladder_rect)  # Draw ladders
 
