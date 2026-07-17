@@ -71,6 +71,12 @@ class Barrel(pygame.sprite.Sprite):
         if ladder_index != -1:
             self.rect.y += 1  # Adjust position to simulate falling down the ladder
             self.rect.x = ladders[ladder_index].x  # Keep the barrel aligned with the ladder
+
+def collision_sprite(mario, all_barrels):
+    if pygame.sprite.spritecollide(mario.sprite, all_barrels, False):
+        return True
+    else:
+        return False
    
 
 pygame.init()
@@ -79,6 +85,17 @@ screen = pygame.display.set_mode((800, 600))
 pygame.display.set_caption("Barrel-ly Learning")
 clock = pygame.time.Clock()
 
+# Bridges
+bridges = [
+    pygame.Rect(50,580,750,20),
+    pygame.Rect(0,500,750,20),
+    pygame.Rect(50,420,750,20),
+    pygame.Rect(0,340,750,20),
+    pygame.Rect(50,260,750,20),
+    pygame.Rect(0,340,750,20)
+]
+
+"""
 bridge = pygame.Surface((750, 20))
 bridge.fill((255, 0, 0))
 
@@ -90,6 +107,7 @@ bridge_rect5 = bridge.get_rect(topright=(800, 260))
 bridge_rect6 = bridge.get_rect(topleft=(0, 180))
 
 bridges = [bridge_rect1, bridge_rect2, bridge_rect3, bridge_rect4, bridge_rect5, bridge_rect6]
+"""
 
 # Ladders
 ladders = [
@@ -107,7 +125,7 @@ all_barrels = pygame.sprite.Group()
 
 # Timer for spawning barrels
 SPAWN_BARREL_EVENT = pygame.USEREVENT + 1
-pygame.time.set_timer(SPAWN_BARREL_EVENT, 2000)  # Spawn a barrel every 2 seconds
+pygame.time.set_timer(SPAWN_BARREL_EVENT, random.randint(1000,3000))  # Spawn a barrel every 2 seconds
 
 while True:
     for event in pygame.event.get():
@@ -117,6 +135,10 @@ while True:
         if event.type == SPAWN_BARREL_EVENT:
             new_barrel = Barrel(100, 100)
             all_barrels.add(new_barrel)
+        if collision_sprite(mario, all_barrels):
+            print("Game Over")
+            pygame.quit()
+            exit()
         
     screen.fill((20, 20, 20))
 
