@@ -8,15 +8,18 @@ class Mario(pygame.sprite.Sprite):
         self.image.set_colorkey((0, 0, 0))  # Set white as the transparent color
         self.rect = self.image.get_rect(bottomleft=(50, 580))
         self.gravity = 0
+        self.jumping = False
 
     def player_input(self):
+        on_bridge = self.rect.collidelist(bridges) != -1
         keys = pygame.key.get_pressed()
         if keys[pygame.K_LEFT]:
             self.rect.x -= 5
         if keys[pygame.K_RIGHT]:
             self.rect.x += 5
-        if keys[pygame.K_SPACE] and self.rect.collidelist(bridges):
+        if keys[pygame.K_SPACE] and not on_bridge:
             self.gravity = -5
+            self.jumping = True
     
     def apply_gravity(self):
         on_ladder = self.rect.collidelist(ladders) != -1
@@ -32,9 +35,10 @@ class Mario(pygame.sprite.Sprite):
             self.gravity += 1
             self.rect.y += self.gravity
 
-        bridge = self.rect.collidelist(bridges) != -1
-        if bridge and self.gravity >= 0: 
+        on_bridge = self.rect.collidelist(bridges) != -1
+        if on_bridge and self.gravity >= 0 and not self.jumping: 
             self.rect.bottom = bridges[self.rect.collidelist(bridges)].top
+            self.jumping = False
             self.gravity = 0
     
     def update(self):

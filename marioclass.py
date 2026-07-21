@@ -86,7 +86,6 @@ class Mario:
 
     def update(self, dt):
         keys = pygame.key.get_pressed()
-
         on_ladder = self.rect.collidelist(ladders) != -1
         on_bridge = self.rect.collidelist(bridges) != -1
 
@@ -115,7 +114,7 @@ class Mario:
         if self.jumping:
             self.rect.y -= self.jump_velocity
             self.jump_velocity -= self.jump_gravity
-            if self.jump_velocity <= -self.jump_height:
+            if self.jump_velocity < -self.jump_height:
                 self.jumping = False
                 self.jump_velocity = self.jump_height
 
