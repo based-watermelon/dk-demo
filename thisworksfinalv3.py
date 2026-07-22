@@ -1,3 +1,8 @@
+# Bridges and ladders need to be updated, larger gaps
+# fix that snap issue by introducing a variable similar to what u had in the old version
+# integrate barrels
+# fuck AI
+
 import pygame
 from sys import exit
 
@@ -35,7 +40,7 @@ sprites = [
 # constants
 MOVE_SPEED = 200
 CLIMB_SPEED = 150
-
+GROUND_TOLERANCE = 4    # tolerance for standing on a bridge
 # Bridge
 bridge = pygame.Surface((750, 20))
 bridge.fill((255, 0, 0))
@@ -66,13 +71,16 @@ ladders = [
     pygame.Rect(200, 180, 20, 80),
 ]
 
-def canMarioClimb(ladders, center):
-    flag = 0
+def canMarioClimb(ladders, rect):
     for ladder in ladders:
         ladder_center_x = ladder.centerx
-        if abs(center - ladder_center_x) <= 5:
-            return True
+        if abs(rect.centerx - ladder_center_x) <= 6:
+            if ladder.top <= rect.bottom <= ladder.bottom :
+                return True
     return False
+def isOnBridge(bridges, mrect):
+    probe = pygame.Rect(mrect.x, mrect.y, mrect.width, mrect.height + GROUND_TOLERANCE)
+    return probe.collidelist(bridges) != -1
 
 
 class Mario:
@@ -102,15 +110,17 @@ class Mario:
 
     def update(self):
         keys = pygame.key.get_pressed()
-        on_ladder_ranged = self.rect.collidelist(ladders) != -1 and canMarioClimb(ladders, self.rect.centerx) == True
-        # on_ladder = self.rect.collidelist(ladders) != -1
-        current_ladder = self.rect.collidelist(ladders)
-        on_bridge = self.rect.collidelist(bridges) != -1
+        on_ladder_ranged = canMarioClimb(ladders, self.rect) == True
+        on_bridge = isOnBridge(bridges, self.rect)
         
-        if (keys[pygame.K_UP] or keys[pygame.K_DOWN]) and on_ladder_ranged:
-            self.is_climbing = True
-        else:        
-            self.is_climbing = False
+        if not self.is_climbing:
+            if (keys[pygame.K_UP] or keys[pygame.K_DOWN]) and on_ladder_ranged:
+                self.is_climbing = True
+        else:
+            if not on_ladder_ranged:
+                self.is_climbing = False
+        
+        
 
         walk_cooldown = 7
         dx = 0
@@ -124,19 +134,19 @@ class Mario:
             self.jumped = False
 
         if keys[pygame.K_LEFT] and self.is_climbing == False:
-            dx -= 5 
+            dx -= 4 
             self.counter += 1
             self.direction = -1
         if keys[pygame.K_RIGHT] and self.is_climbing == False:
-            dx += 5
+            dx += 4
             self.counter += 1
             self.direction = 1
         if keys[pygame.K_UP] and on_ladder_ranged == True:
-            dy -= 3
+            dy -= 2
             self.counter += 1
             self.direction = -1
         if keys[pygame.K_DOWN] and on_ladder_ranged == True:
-            dy += 3
+            dy += 2
         if keys[pygame.K_LEFT] == False and keys[pygame.K_RIGHT] == False:
             self.counter = 0
             self.index = 0
@@ -190,23 +200,19 @@ class Mario:
         # update player coords
         self.rect.x += dx
         self.rect.y += dy
-
+        # border boundaries
         if self.rect.bottom > W_HEIGHT:
             self.rect.bottom = W_HEIGHT
             dy = 0
+        if self.rect.left < 0:
+            self.rect.left = 0
+            dx = 0
+        if self.rect.right > W_WIDTH:
+            self.rect.right = W_WIDTH
+            dx = 0
         
         #draw mario on screen
         screen.blit(self.image, self.rect)
-
-        
-
-
-
-        
-
-
-
-
 # donkeykong
 dk = pygame.transform.scale(pygame.image.load(sprites[11]), (60, 80))
 princess = pygame.transform.scale(pygame.image.load(sprites[13]), (45, 40))

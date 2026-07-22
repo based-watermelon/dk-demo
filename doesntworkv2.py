@@ -66,19 +66,14 @@ ladders = [
     pygame.Rect(200, 180, 20, 80),
 ]
 
-def canMarioClimb(ladders, center):
-    flag = 0
+def canMarioClimb(ladders, mrect):
     for ladder in ladders:
-        ladder_center_x = ladder.centerx
-        if abs(center - ladder_center_x) <= 5:
-
-            return True
-    return False
-
-def is_on_bridge(self):
-    probe = self.rect.copy()
-    probe.height += 2  # extend 2px downward to catch touching edges
-    return probe.collidelist(bridges) != -1
+        # ladder_center_x = ladder.centerx
+        # if abs(center - ladder_center_x) <= 5:
+        if ladder.left <= mrect.centerx <= ladder.right:
+            if (abs(mrect.bottom - ladder.bottom) < 10) or (abs(mrect.bottom - ladder.top)) < 10:
+                return ladder
+    return None 
 
 
 class Mario:
@@ -102,18 +97,36 @@ class Mario:
         self.height = self.image.get_height()
         self.vel_y = 0
         self.jumped = False
+        self.is_climbing = False
+        self.current_ladder = None
         self.direction = 0
         
-
+        
     def update(self):
         keys = pygame.key.get_pressed()
-        on_ladder_ranged = self.rect.collidelist(ladders) != -1 and canMarioClimb(ladders, self.rect.centerx) == True
-        on_bridge = is_on_bridge(self)
-        is_climbing = on_ladder_ranged == True and on_bridge == False
+        # on_ladder_ranged = self.rect.collidelist(ladders) != -1 and canMarioClimb(ladders, self.rect)
+        on_bridge = self.rect.collidelist(bridges) != -1
+
+        #checking if climbing
+        if not self.is_climbing:
+            ladderc = canMarioClimb(ladders, self.rect)
+
+            if ladderc and keys[pygame.K_UP]:
+                self.is_climbing = True
+                self.current_ladder = ladderc
+                if self.rect.bottom <= ladderc.top + 5:
+                    self.is_climbing = False
+
+            elif ladderc and keys[pygame.K_DOWN]:
+                self.is_climbing = True
+                self.current_ladder = ladderc
+                if self.rect.bottom >= ladderc.bottom - 5:
+                    self.is_climbing = False
+        
         walk_cooldown = 7
         dx = 0
         dy = 0
-        if keys[pygame.K_SPACE] and self.jumped == False and is_climbing == False:
+        if keys[pygame.K_SPACE] and self.jumped == False and self.is_climbing == False:
             if on_bridge == True:
                 self.vel_y = -10
                 self.jumped = True
@@ -121,19 +134,19 @@ class Mario:
         if keys[pygame.K_SPACE] == False:
             self.jumped = False
 
-        if keys[pygame.K_LEFT] and is_climbing == False:
+        if keys[pygame.K_LEFT] and self.is_climbing == False:
             dx -= 5 
             self.counter += 1
             self.direction = -1
-        if keys[pygame.K_RIGHT] and is_climbing == False:
+        if keys[pygame.K_RIGHT] and self.is_climbing == False:
             dx += 5
             self.counter += 1
             self.direction = 1
-        if keys[pygame.K_UP] and on_ladder_ranged == True:
+        if keys[pygame.K_UP] and self.is_climbing == True:
             dy -= 3
             self.counter += 1
             self.direction = -1
-        if keys[pygame.K_DOWN] and on_ladder_ranged == True:
+        if keys[pygame.K_DOWN] and self.is_climbing == True:
             dy += 3
         if keys[pygame.K_LEFT] == False and keys[pygame.K_RIGHT] == False:
             self.counter = 0
@@ -161,7 +174,7 @@ class Mario:
         
 
         # adding gravity
-        if is_climbing == False:
+        if self.is_climbing == False:
             self.vel_y += 0.85
             if self.vel_y > 10:
                 self.vel_y = 10
@@ -172,7 +185,7 @@ class Mario:
         # for ladder in ladders:
         #     if ladder.colliderect(self.rect.x + dx, self.rect.y, self.width, self.height):
         #         dx = 0
-        if on_bridge == True and is_climbing == False:
+        if on_bridge == True and self.is_climbing == False:
             for bridge in bridges:
                 #y direction
                 if bridge.colliderect(self.rect.x, self.rect.y + dy, self.width, self.height):
@@ -206,8 +219,8 @@ class Mario:
 
 
 # donkeykong
-dk = pygame.transform.scale(pygame.image.load(sprites[11]), (60, 80)).convert_alpha()
-princess = pygame.transform.scale(pygame.image.load(sprites[13]), (30, 40)).convert_alpha()
+dk = pygame.transform.scale(pygame.image.load(sprites[11]), (60, 80))
+princess = pygame.transform.scale(pygame.image.load(sprites[13]), (30, 40))
 
 mario = Mario(50,580)
 
