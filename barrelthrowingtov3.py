@@ -1,7 +1,7 @@
 # Bridges and ladders need to be updated, larger gaps
 # fix that snap issue by introducing a variable similar to what u had in the old version
 # integrate barrels
-
+import random
 import pygame
 from sys import exit
 
@@ -133,19 +133,19 @@ class Mario:
             self.jumped = False
 
         if keys[pygame.K_LEFT] and self.is_climbing == False:
-            dx -= 4 
+            dx -= 3 
             self.counter += 1
             self.direction = -1
         if keys[pygame.K_RIGHT] and self.is_climbing == False:
-            dx += 4
+            dx += 3
             self.counter += 1
             self.direction = 1
         if keys[pygame.K_UP] and on_ladder_ranged == True:
-            dy -= 2
+            dy -= 1
             self.counter += 1
             self.direction = -1
         if keys[pygame.K_DOWN] and on_ladder_ranged == True:
-            dy += 2
+            dy += 1
         if keys[pygame.K_LEFT] == False and keys[pygame.K_RIGHT] == False:
             self.counter = 0
             self.index = 0
@@ -212,11 +212,57 @@ class Mario:
         
         #draw mario on screen
         screen.blit(self.image, self.rect)
+
+class Barrel(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        super().__init__()
+        self.image = pygame.transform.scale(pygame.image.load("assets/barrel.jpg"), (20,20))
+        self.image.set_colorkey("black")
+        self.image = self.image.convert_alpha()
+        self.rect = self.image.get_frect()
+        self.rect.x = x
+        self.rect.y = y
+        self.gravity = 0
+        self.move_speed = 200
+        self.climb_speed = 150
+    
+    def update(self):
+        self.gravity = 2  # Simulate gravity for the barrel
+        #self.check_collision_with_ladders()
+        self.check_collision_with_bridges()
+
+    def check_collision_with_bridges(self):
+        bridge_index = self.rect.collidelist(bridges)
+        if bridge_index == -1:
+            self.rect.y += self.gravity  # Simulate gravity when not on a bridge
+        else:
+            if bridge_index%2 == 0:  # If on an even-indexed bridge, move left
+                self.rect.x -= 3
+            else:  # If on an odd-indexed bridge, move right
+                self.rect.x += 3
+
+    def check_collision_with_ladders(self):
+        ladder_index = self.rect.collidelist(ladders)
+        if ladder_index != -1 :  # Occasionally let a barrel tumble down a ladder
+            self.rect.y += 1  # Adjust position to simulate falling down the ladder
+            self.rect.x = ladders[ladder_index].x
+
+
+
 # donkeykong
 dk = pygame.transform.scale(pygame.image.load(sprites[11]), (60, 80))
 princess = pygame.transform.scale(pygame.image.load(sprites[13]), (45, 40))
 
 mario = Mario(50,580)
+
+all_barrels = pygame.sprite.Group()
+
+
+
+
+SPAWN_BARREL_EVENT = pygame.USEREVENT + 1
+pygame.time.set_timer(SPAWN_BARREL_EVENT, random.randint(2000, 4000)) 
+
 
 running = True
 while running:
@@ -225,6 +271,12 @@ while running:
         if event.type == pygame.QUIT:
             pygame.quit()
             exit()
+        
+        if event.type == SPAWN_BARREL_EVENT:
+            new_barrel = Barrel(100,100)  # Spawn barrel at a fixed position (100, 100)
+            all_barrels.add(new_barrel)
+
+            pygame.time.set_timer(SPAWN_BARREL_EVENT,random.randint(2000, 4000))
 
     
 
@@ -242,6 +294,8 @@ while running:
     screen.blit(princess, (110, 140))
         
     mario.update()
+    all_barrels.update()
+    all_barrels.draw(screen)
 
     clock.tick(60)
     pygame.display.update()
