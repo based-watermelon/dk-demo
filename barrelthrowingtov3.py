@@ -12,6 +12,7 @@ W_HEIGHT = 600
 screen = pygame.display.set_mode((W_WIDTH, W_HEIGHT))
 pygame.display.set_caption("Barrel-ly Learning")
 clock = pygame.time.Clock()
+font = pygame.font.SysFont(None,30)
 
 sprites = [
     "assets/marion.png",
@@ -40,6 +41,8 @@ CLIMB_SPEED = 150
 GROUND_TOLERANCE = 4    # tolerance for standing on a bridge
 LADDER_TOP_TOLERANCE = 100
 LIVES = 3
+MARIO_INITIAL = (50, 580)
+GAME_OVER = 0
 # Bridge
 bridge = pygame.Surface((750, 20))
 bridge.fill((255, 0, 0))
@@ -96,6 +99,7 @@ class Mario:
         self.image = self.right_walk[self.index]
         self.jump_image = pygame.transform.scale(pygame.image.load(sprites[2]).convert_alpha(), (20, 30))
         self.rjump_image = pygame.transform.scale(pygame.image.load(sprites[5]).convert_alpha(), (20, 30))
+        self.death_image = pygame.transform.scale(pygame.image.load(sprites[16]).convert_alpha(), (20, 30))
         self.rect = self.image.get_frect()
         self.rect.x = x
         self.rect.y = y
@@ -106,108 +110,124 @@ class Mario:
         self.direction = 0
         self.is_climbing = False
         
+    def reset(self, x, y):
+        self.rect.x = x
+        self.rect.y = y
+        self.vel_y = 0
+        self.jumped = False
+        self.direction = 0
+        self.is_climbing = False
+        self.index = 0
+        self.counter = 0
+        self.image = self.right_walk[self.index]
 
-    def update(self):
-        keys = pygame.key.get_pressed()
-        on_ladder_ranged = canMarioClimb(ladders, self.rect) == True
-        on_bridge = isOnBridge(bridges, self.rect)
-        
-        if not self.is_climbing:
-            if (keys[pygame.K_UP] or keys[pygame.K_DOWN]) and on_ladder_ranged:
-                self.is_climbing = True
-        else:
-            if not on_ladder_ranged:
-                self.is_climbing = False
-        
-        
-
+    def update(self, GAME_OVER):
         walk_cooldown = 7
         dx = 0
         dy = 0
-        if keys[pygame.K_SPACE] and self.jumped == False and self.is_climbing == False:
-            if on_bridge == True:
-                self.vel_y = -10
-                self.jumped = True
+        if GAME_OVER == 0 :
+            keys = pygame.key.get_pressed()
+            on_ladder_ranged = canMarioClimb(ladders, self.rect) == True
+            on_bridge = isOnBridge(bridges, self.rect)
             
-        if keys[pygame.K_SPACE] == False:
-            self.jumped = False
+            if not self.is_climbing:
+                if (keys[pygame.K_UP] or keys[pygame.K_DOWN]) and on_ladder_ranged:
+                    self.is_climbing = True
+            else:
+                if not on_ladder_ranged:
+                    self.is_climbing = False
 
-        if keys[pygame.K_LEFT] and self.is_climbing == False:
-            dx -= 3 
-            self.counter += 1
-            self.direction = -1
-        if keys[pygame.K_RIGHT] and self.is_climbing == False:
-            dx += 3
-            self.counter += 1
-            self.direction = 1
-        if keys[pygame.K_UP] and on_ladder_ranged == True:
-            dy -= 1
-            self.counter += 1
-            self.direction = -1
-        if keys[pygame.K_DOWN] and on_ladder_ranged == True:
-            dy += 1
-        if keys[pygame.K_LEFT] == False and keys[pygame.K_RIGHT] == False:
-            self.counter = 0
-            self.index = 0
-            if self.direction == 1:
-                self.image = self.right_walk[self.index]
-            if self.direction == -1:
-                self.image = self.left_walk[self.index]
+            if keys[pygame.K_SPACE] and self.jumped == False and self.is_climbing == False:
+                if on_bridge == True:
+                    self.vel_y = -10
+                    self.jumped = True
+                
+            if keys[pygame.K_SPACE] == False:
+                self.jumped = False
 
-        #animation
-        if self.counter > walk_cooldown:
-            self.counter = 0
-            self.index += 1
-            if self.index >= len(self.right_walk):
+            if keys[pygame.K_LEFT] and self.is_climbing == False:
+                dx -= 3 
+                self.counter += 1
+                self.direction = -1
+            if keys[pygame.K_RIGHT] and self.is_climbing == False:
+                dx += 3
+                self.counter += 1
+                self.direction = 1
+            if keys[pygame.K_UP] and on_ladder_ranged == True:
+                dy -= 1
+                self.counter += 1
+                self.direction = -1
+            if keys[pygame.K_DOWN] and on_ladder_ranged == True:
+                dy += 1
+            if keys[pygame.K_LEFT] == False and keys[pygame.K_RIGHT] == False:
+                self.counter = 0
                 self.index = 0
-            if self.direction == 1:
-                self.image = self.right_walk[self.index]
-            if self.direction == -1:
-                self.image = self.left_walk[self.index]
-        # if not on_bridge:
-        #     if self.direction == 1:
-        #         self.image = self.jump_image
-        #     elif self.direction == -1:
-        #         self.image = self.rjump_image
-        
+                if self.direction == 1:
+                    self.image = self.right_walk[self.index]
+                if self.direction == -1:
+                    self.image = self.left_walk[self.index]
 
-        # adding gravity
-        if self.is_climbing == False and on_ladder_ranged == False:
-            self.vel_y += 0.85
-            if self.vel_y > 10:
-                self.vel_y = 10
-            dy += self.vel_y
-        
-        # check for collisions
-        if on_bridge == True and self.is_climbing == False :
-            for bridge in bridges:
-                #y direction
-                if bridge.colliderect(self.rect.x, self.rect.y + dy, self.width, self.height):
-                    #check if below block (jumping)
-                    if self.vel_y < 0:
-                        dy = bridge.bottom - self.rect.top
-                    # check if collision on the block (falling)
-                    elif self.vel_y >= 0:
-                        dy = bridge.top - self.rect.bottom
-                        self.vel_y = 0
+            #animation
+            if self.counter > walk_cooldown:
+                self.counter = 0
+                self.index += 1
+                if self.index >= len(self.right_walk):
+                    self.index = 0
+                if self.direction == 1:
+                    self.image = self.right_walk[self.index]
+                if self.direction == -1:
+                    self.image = self.left_walk[self.index]
+            if self.jumped:
+                if self.direction == 1:
+                    self.image = self.jump_image
+                elif self.direction == -1:
+                    self.image = self.rjump_image
+            
+
+            # adding gravity
+            if self.is_climbing == False and on_ladder_ranged == False:
+                self.vel_y += 0.75
+                if self.vel_y > 10:
+                    self.vel_y = 10
+                dy += self.vel_y
+            
+            # check for collisions
+            if on_bridge == True and self.is_climbing == False :
+                for bridge in bridges:
+                    #y direction
+                    if bridge.colliderect(self.rect.x, self.rect.y + dy, self.width, self.height):
+                        #check if below block (jumping)
+                        if self.vel_y < 0:
+                            dy = bridge.bottom - self.rect.top
+                        # check if collision on the block (falling)
+                        elif self.vel_y >= 0:
+                            dy = bridge.top - self.rect.bottom
+                            self.vel_y = 0
+
+            # check for collision with barrels
+            if pygame.sprite.spritecollide(self, all_barrels, False):
+                GAME_OVER = -1
 
 
-        # update player coords  
-        self.rect.x += dx
-        self.rect.y += dy
-        # border boundaries
-        if self.rect.bottom > W_HEIGHT:
-            self.rect.bottom = W_HEIGHT
-            dy = 0
-        if self.rect.left < 0:
-            self.rect.left = 0
-            dx = 0
-        if self.rect.right > W_WIDTH:
-            self.rect.right = W_WIDTH
-            dx = 0
-        
+            # update player coords  
+            self.rect.x += dx
+            self.rect.y += dy
+            # border boundaries
+            if self.rect.bottom > W_HEIGHT:
+                self.rect.bottom = W_HEIGHT
+                dy = 0
+            if self.rect.left < 0:
+                self.rect.left = 0
+                dx = 0
+            if self.rect.right > W_WIDTH:
+                self.rect.right = W_WIDTH
+                dx = 0
+            
+        else:
+            self.image = self.death_image
         #draw mario on screen
         screen.blit(self.image, self.rect)
+        return GAME_OVER
 
 class Barrel(pygame.sprite.Sprite):
     def __init__(self, x, y):
@@ -275,20 +295,23 @@ class Barrel(pygame.sprite.Sprite):
 # donkeykong
 dk = pygame.transform.scale(pygame.image.load(sprites[11]), (60, 80))
 dkb = pygame.transform.scale(pygame.image.load(sprites[12]), (60, 80))
+dkbr = pygame.transform.flip(dkb,True, False )
+lots_of_barrels = pygame.transform.scale(pygame.image.load(sprites[17]), (50, 80))
 princess = pygame.transform.scale(pygame.image.load(sprites[13]), (45, 40))
 dk_throwing = False
 
-mario = Mario(50,580)
+
+mario = Mario(*MARIO_INITIAL)
 
 all_barrels = pygame.sprite.Group()
 
 SPAWN_BARREL_EVENT = pygame.USEREVENT + 1
-pygame.time.set_timer(SPAWN_BARREL_EVENT, random.randint(2000, 4000)) 
+pygame.time.set_timer(SPAWN_BARREL_EVENT, random.randint(2000, 5000)) 
 
 running = True
-monke = False
 while running:
-    
+    lives_text=font.render(f"Lives: {LIVES}", True, "white")
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
@@ -298,7 +321,7 @@ while running:
             new_barrel = Barrel(100,100)  # Spawn barrel at a fixed position (100, 100)
             all_barrels.add(new_barrel)
 
-            pygame.time.set_timer(SPAWN_BARREL_EVENT,random.randint(2000, 4000))
+            pygame.time.set_timer(SPAWN_BARREL_EVENT,random.randint(2000, 5000))
             dk_throwing = True
         if event.type != SPAWN_BARREL_EVENT:
             dk_throwing = False
@@ -315,15 +338,32 @@ while running:
         pygame.draw.rect(screen, (139, 69, 19), ladder)
 
     
-    screen.blit(princess, (110, 140))
+    screen.blit(princess, (150, 140))
+
     if dk_throwing:
-        screen.blit(dkb, (30, 100))
+        screen.blit(dkb, (50, 100))
     else:
-        screen.blit(dk, (30, 100))
+        screen.blit(dk, (50, 100))
+    screen.blit(lots_of_barrels, (5, 100))
         
-    mario.update()
-    all_barrels.update()
+    GAME_OVER = mario.update(GAME_OVER)
+    if GAME_OVER == 0:
+        all_barrels.update()
     all_barrels.draw(screen)
+    
+
+
+    if GAME_OVER == -1 :
+        LIVES -= 1
+        if LIVES <= 0:
+            pygame.quit()
+            exit()
+        else:
+            mario.reset(*MARIO_INITIAL)
+            all_barrels.empty()
+            pygame.time.set_timer(SPAWN_BARREL_EVENT, random.randint(2000, 5000))
+            GAME_OVER = 0
+    screen.blit(lives_text, (700,10))
 
     clock.tick(60)
     pygame.display.update()
