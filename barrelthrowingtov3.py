@@ -1,6 +1,4 @@
-# Bridges and ladders need to be updated, larger gaps
-# fix that snap issue by introducing a variable similar to what u had in the old version
-# integrate barrels
+# need to add more ladders according to original DK
 import random
 import pygame
 from sys import exit
@@ -40,6 +38,8 @@ sprites = [
 MOVE_SPEED = 200
 CLIMB_SPEED = 150
 GROUND_TOLERANCE = 4    # tolerance for standing on a bridge
+LADDER_TOP_TOLERANCE = 100
+LIVES = 3
 # Bridge
 bridge = pygame.Surface((750, 20))
 bridge.fill((255, 0, 0))
@@ -179,10 +179,6 @@ class Mario:
             dy += self.vel_y
         
         # check for collisions
-        #x direction
-        # for ladder in ladders:
-        #     if ladder.colliderect(self.rect.x + dx, self.rect.y, self.width, self.height):
-        #         dx = 0
         if on_bridge == True and self.is_climbing == False :
             for bridge in bridges:
                 #y direction
@@ -196,7 +192,7 @@ class Mario:
                         self.vel_y = 0
 
 
-        # update player coords
+        # update player coords  
         self.rect.x += dx
         self.rect.y += dy
         # border boundaries
@@ -225,46 +221,71 @@ class Barrel(pygame.sprite.Sprite):
         self.gravity = 0
         self.move_speed = 200
         self.climb_speed = 150
+        self.ladder_decision = None
+        self.on_ladder = False
     
     def update(self):
         self.gravity = 2  # Simulate gravity for the barrel
         #self.check_collision_with_ladders()
-        self.check_collision_with_bridges()
+        self.check_collision_with_ladders()
+        if not self.on_ladder:
+            self.check_collision_with_bridges()
 
     def check_collision_with_bridges(self):
-        bridge_index = self.rect.collidelist(bridges)
+        probe = pygame.Rect(self.rect.x, self.rect.y, self.rect.width, self.rect.height + GROUND_TOLERANCE)
+        bridge_index = probe.collidelist(bridges)        
         if bridge_index == -1:
             self.rect.y += self.gravity  # Simulate gravity when not on a bridge
         else:
+            self.rect.bottom = bridges[bridge_index].top
             if bridge_index%2 == 0:  # If on an even-indexed bridge, move left
                 self.rect.x -= 3
             else:  # If on an odd-indexed bridge, move right
                 self.rect.x += 3
+            
 
     def check_collision_with_ladders(self):
-        ladder_index = self.rect.collidelist(ladders)
-        if ladder_index != -1 :  # Occasionally let a barrel tumble down a ladder
-            self.rect.y += 1  # Adjust position to simulate falling down the ladder
+        ladder_index = -1
+        for i, ladder in enumerate(ladders):
+            if canMarioClimb([ladder], self.rect):
+                ladder_index = i
+                break
+
+        if ladder_index == -1:
+            self.ladder_decision = None
+            self.on_ladder = False
+            return
+
+        if self.ladder_decision is None:
+            self.ladder_decision = ladder_index if random.random() < 0.5 else -1
+
+        if self.ladder_decision == ladder_index:
+            self.on_ladder = True
+            self.rect.y += 1
             self.rect.x = ladders[ladder_index].x
+            if self.rect.bottom >= ladders[ladder_index].bottom:
+                self.on_ladder = False
+                self.ladder_decision = None
+        else:
+            self.on_ladder = False
+         
 
 
 
 # donkeykong
 dk = pygame.transform.scale(pygame.image.load(sprites[11]), (60, 80))
+dkb = pygame.transform.scale(pygame.image.load(sprites[12]), (60, 80))
 princess = pygame.transform.scale(pygame.image.load(sprites[13]), (45, 40))
 
 mario = Mario(50,580)
 
 all_barrels = pygame.sprite.Group()
 
-
-
-
 SPAWN_BARREL_EVENT = pygame.USEREVENT + 1
 pygame.time.set_timer(SPAWN_BARREL_EVENT, random.randint(2000, 4000)) 
 
-
 running = True
+monke = False
 while running:
     
     for event in pygame.event.get():
@@ -277,7 +298,7 @@ while running:
             all_barrels.add(new_barrel)
 
             pygame.time.set_timer(SPAWN_BARREL_EVENT,random.randint(2000, 4000))
-
+            screen.blit()
     
 
     # Draw everything
@@ -290,7 +311,7 @@ while running:
     for ladder in ladders:
         pygame.draw.rect(screen, (139, 69, 19), ladder)
 
-    screen.blit(dk, (30, 100))
+    
     screen.blit(princess, (110, 140))
         
     mario.update()
