@@ -276,6 +276,7 @@ class Barrel(pygame.sprite.Sprite):
 dk = pygame.transform.scale(pygame.image.load(sprites[11]), (60, 80))
 dkb = pygame.transform.scale(pygame.image.load(sprites[12]), (60, 80))
 princess = pygame.transform.scale(pygame.image.load(sprites[13]), (45, 40))
+dk_throwing = False
 
 mario = Mario(50,580)
 
@@ -298,7 +299,9 @@ while running:
             all_barrels.add(new_barrel)
 
             pygame.time.set_timer(SPAWN_BARREL_EVENT,random.randint(2000, 4000))
-            screen.blit()
+            dk_throwing = True
+        if event.type != SPAWN_BARREL_EVENT:
+            dk_throwing = False
     
 
     # Draw everything
@@ -313,6 +316,10 @@ while running:
 
     
     screen.blit(princess, (110, 140))
+    if dk_throwing:
+        screen.blit(dkb, (30, 100))
+    else:
+        screen.blit(dk, (30, 100))
         
     mario.update()
     all_barrels.update()
