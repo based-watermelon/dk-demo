@@ -75,7 +75,8 @@ bridges = [
     pygame.Rect(50,580,750,20),
     pygame.Rect(0,480,750,20),
     pygame.Rect(50,380,750,20),
-    pygame.Rect(0,280,750,20)
+    pygame.Rect(0,280,750,20),
+    
 ]
 
 # Ladders
@@ -85,7 +86,8 @@ ladders = [
     pygame.Rect(500, 480, 20, 100),
     pygame.Rect(700, 380, 20, 100),
     pygame.Rect(200, 280, 20, 100),
-    pygame.Rect(150,180,20, 100)
+    pygame.Rect(150,180,20, 100),
+    pygame.Rect(120,180,100,20)
 ]
 
 def canMarioClimb(ladders, rect):
@@ -372,7 +374,6 @@ while running:
 
     for bridge_rect in bridges:
         pygame.draw.rect(screen, (255,0,0), bridge_rect)
-    pygame.draw.rect(screen, (255,0,0), pygame.Rect(120,180,100,20))
 
     for ladder in ladders:
         pygame.draw.rect(screen, (139, 69, 19), ladder)
