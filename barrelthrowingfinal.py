@@ -274,7 +274,7 @@ class Mario:
             
 
 
-            
+
         else:
             self.image = self.death_image
         #draw mario on screen
