@@ -1,5 +1,5 @@
 import pygame
-import csv
+
 
 #initial variables
 GRID_SIZE = 7
@@ -52,8 +52,8 @@ def vision_grid(CELL_SIZE,GRID_SIZE,mario,screen,all_barrels,ladders):
     for ladder in ladders:
         rel_x = ladder.centerx - grid_left
         rel_yc = ladder.centery - grid_top
-        rel_yt = ladder.top - grid_top
-        rel_yb = ladder.bottom - grid_top
+        #rel_yt = ladder.top - grid_top
+        #rel_yb = ladder.bottom - grid_top
 
         col = int(rel_x //CELL_SIZE)
         rowc = int(rel_yc//CELL_SIZE)
@@ -102,7 +102,7 @@ def vision_grid(CELL_SIZE,GRID_SIZE,mario,screen,all_barrels,ladders):
                                 CELL_SIZE
                             )
                         )
-    return ladder_grid, barrel_grid
+    return barrel_grid, ladder_grid
 
 def agent_grid(CELL_SIZE,ENV_GRID,mario,screen):
     grid_left = 0
@@ -164,8 +164,5 @@ def flatten(grid):
 
     return data
 
-def log(state):
 
-    reward = 0 
-    dataset.append(state + [action, reward])
      
