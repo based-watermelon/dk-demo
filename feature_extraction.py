@@ -35,19 +35,19 @@ def vision_grid(CELL_SIZE,GRID_SIZE,mario,screen,all_barrels,ladders):
         col = int(rel_x // CELL_SIZE)
         row = int(rel_y // CELL_SIZE)
 
-        if 0 <= row < 7 and 0 <= col < 7:
-            barrel_grid[row][col] = 1
-            if barrel_grid[row][col]:
-                pygame.draw.rect(
-                    screen,
-                    "red",
-                    (
-                        grid_left + col * CELL_SIZE,
-                        grid_top + row * CELL_SIZE,
-                        CELL_SIZE,
-                        CELL_SIZE,
-                    ),
-                )
+        # if 0 <= row < 7 and 0 <= col < 7:
+        #     barrel_grid[row][col] = 1
+        #     if barrel_grid[row][col]:
+        #         pygame.draw.rect(
+        #             screen,
+        #             "red",
+        #             (
+        #                 grid_left + col * CELL_SIZE,
+        #                 grid_top + row * CELL_SIZE,
+        #                 CELL_SIZE,
+        #                 CELL_SIZE,
+        #             ),
+        #         )
     ladder_grid = [[0 for i in range(7)] for i in range(7)]
     for ladder in ladders:
         rel_x = ladder.centerx - grid_left
@@ -61,66 +61,66 @@ def vision_grid(CELL_SIZE,GRID_SIZE,mario,screen,all_barrels,ladders):
         rowb = rowc + 1
 
 
-        if 0<= rowc <7 and 0<= col <7:
-            ladder_grid[rowc][col] = 1
-            if ladder_grid[rowc][col]:
-                pygame.draw.rect(
-                    screen,
-                    "yellow",
-                    (
-                        grid_left + col * CELL_SIZE,
-                        grid_top +rowc * CELL_SIZE,
-                        CELL_SIZE,
-                        CELL_SIZE
-                    )
-                )
+        # if 0<= rowc <7 and 0<= col <7:
+        #     ladder_grid[rowc][col] = 1
+        #     if ladder_grid[rowc][col]:
+        #         pygame.draw.rect(
+        #             screen,
+        #             "yellow",
+        #             (
+        #                 grid_left + col * CELL_SIZE,
+        #                 grid_top +rowc * CELL_SIZE,
+        #                 CELL_SIZE,
+        #                 CELL_SIZE
+        #             )
+        #         )
                 
-        if 0<= rowt <7 and 0<= col <7:
-                    ladder_grid[rowt][col] = 1
-                    if ladder_grid[rowt][col]:
-                        pygame.draw.rect(
-                            screen,
-                            "yellow",
-                            (
-                                grid_left + col * CELL_SIZE,
-                                grid_top +rowt * CELL_SIZE,
-                                CELL_SIZE,
-                                CELL_SIZE
-                            )
-                        )
+        # if 0<= rowt <7 and 0<= col <7:
+        #             ladder_grid[rowt][col] = 1
+        #             if ladder_grid[rowt][col]:
+        #                 pygame.draw.rect(
+        #                     screen,
+        #                     "yellow",
+        #                     (
+        #                         grid_left + col * CELL_SIZE,
+        #                         grid_top +rowt * CELL_SIZE,
+        #                         CELL_SIZE,
+        #                         CELL_SIZE
+        #                     )
+        #                 )
 
-        if 0<= rowb <7 and 0<= col <7:
-                    ladder_grid[rowb][col] = 1
-                    if ladder_grid[rowb][col]:
-                        pygame.draw.rect(
-                            screen,
-                            "yellow",
-                            (
-                                grid_left + col * CELL_SIZE,
-                                grid_top +rowb * CELL_SIZE,
-                                CELL_SIZE,
-                                CELL_SIZE
-                            )
-                        )
+        # if 0<= rowb <7 and 0<= col <7:
+        #             ladder_grid[rowb][col] = 1
+        #             if ladder_grid[rowb][col]:
+        #                 pygame.draw.rect(
+        #                     screen,
+        #                     "yellow",
+        #                     (
+        #                         grid_left + col * CELL_SIZE,
+        #                         grid_top +rowb * CELL_SIZE,
+        #                         CELL_SIZE,
+        #                         CELL_SIZE
+        #                     )
+        #                 )
     return barrel_grid, ladder_grid
 
 def agent_grid(CELL_SIZE,ENV_GRID,mario,screen):
     grid_left = 0
     grid_top = 0
-    for i in range(ENV_GRID+1):
-        pygame.draw.line(
-                    screen,
-                    "green",
-                    (grid_left + i * CELL_SIZE, grid_top),
-                    (grid_left + i * CELL_SIZE, grid_top + ENV_GRID * CELL_SIZE),
-                )
+    # for i in range(ENV_GRID+1):
+    #     pygame.draw.line(
+    #                 screen,
+    #                 "green",
+    #                 (grid_left + i * CELL_SIZE, grid_top),
+    #                 (grid_left + i * CELL_SIZE, grid_top + ENV_GRID * CELL_SIZE),
+    #             )
         
-        pygame.draw.line(
-                    screen,
-                    "green",
-                    (grid_left, grid_top + i * CELL_SIZE),
-                    (grid_left + ENV_GRID * CELL_SIZE, grid_top + i * CELL_SIZE),
-                )
+    #     pygame.draw.line(
+    #                 screen,
+    #                 "green",
+    #                 (grid_left, grid_top + i * CELL_SIZE),
+    #                 (grid_left + ENV_GRID * CELL_SIZE, grid_top + i * CELL_SIZE),
+    #             )
     grid = [[0 for _ in range(ENV_GRID)] for _ in range(ENV_GRID)]
     rel_x = mario.rect.centerx - grid_left
     rel_y = mario.rect.centery - grid_top
@@ -129,19 +129,19 @@ def agent_grid(CELL_SIZE,ENV_GRID,mario,screen):
     row = int(rel_y//CELL_SIZE)
     
     
-    if 0<= row <20 and 0<= col <20:
-        grid[row][col] = 1
-        if grid[row][col]:
-            pygame.draw.rect(
-                            screen,
-                            "blue",
-                            (
-                                grid_left + col * CELL_SIZE,
-                                grid_top +row * CELL_SIZE,
-                                CELL_SIZE,
-                                CELL_SIZE
-                            )
-                        )
+    # if 0<= row <20 and 0<= col <20:
+    #     grid[row][col] = 1
+    #     if grid[row][col]:
+    #         pygame.draw.rect(
+    #                         screen,
+    #                         "blue",
+    #                         (
+    #                             grid_left + col * CELL_SIZE,
+    #                             grid_top +row * CELL_SIZE,
+    #                             CELL_SIZE,
+    #                             CELL_SIZE
+    #                         )
+    #                     )
 
     return grid
 
