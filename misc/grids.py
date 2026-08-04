@@ -2,7 +2,6 @@
 import random
 import pygame
 from sys import exit
-from lfdstate import get_state
 
 
 pygame.init()
@@ -219,7 +218,6 @@ class Mario:
             
 
             # adding gravity
-
             if self.is_climbing == False and on_ladder_ranged == False:
                 self.vel_y += 0.75
                 if self.vel_y > 10:
@@ -373,8 +371,6 @@ pygame.time.set_timer(SPAWN_BARREL_EVENT, random.randint(2000, 5000))
 running = True
 while running:
     lives_text=font.render(f"Lives: {LIVES}", True, "white")
-
-    print(get_state(mario, all_barrels, ladders, bridges, screen))
     
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
