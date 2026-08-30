@@ -145,28 +145,24 @@ After training, validating and testing with [90:6:4] episodes respectively, the 
 
 ## Reinforcement Learning: Learning From Experience
 
-Behaviour cloning gets our agent off the ground. By training on human gameplay, it picks up the basics — how to climb a ladder, when to hop over a barrel, how to generally push forward towards the princess.
+Behaviour Cloning was a good starting point for our agent. By training it on human gameplay, the model learned some of the basic behaviours needed to play the game, like climbing ladders, jumping over barrels, and generally moving towards the princess.
 
-But imitation only gets you so far. The agent can only copy what it's already seen, so the second it lands in a situation the demonstrations didn't cover, it's stuck guessing. What we actually wanted was for the agent to start learning from the consequences of its own actions, not just mimicking ours. That's where Reinforcement Learning comes in.
+However behaviour cloning has a pretty obvious limitation, the agent can only learn from situations that ar epresent in the demonstration games. If the agent happens to be in a new state, it does not know how to handle it. We want the agent to learn and make new strategies to win rather than just blindly imitate actions from human-gameplays. 
+
+That's where Reinforcement Learning comes in.
 
 ### Starting With What the Agent Already Knows
 
-We didn't throw the Behaviour Cloning model away and start the RL agent from a blank slate — that would mean making it relearn everything it already figured out. Instead, we used the trained BC model to initialise the Actor-Critic network.
+Instead of train the RL model completely from scratch, we use the waits learned from the BC model as a starting point.
+We used the trained BC model to initoalise the Actor-Critic network.
 
-The shared feature extractor keeps the same architecture:
+Hence the shared feature extractor used in the BC model is kept the same:
 
-```
-503-dimensional State
-        ↓
-Dense Layer — 256 neurons
-        ↓
-       ReLU
-        ↓
-Dense Layer — 128 neurons
+![Shared architecture](media/sharednetwork.png)
 
-```
+The weights learned during Behaviour Cloning get copied straight into these layers, and the BC model's output layer becomes the starting point for the Actor.
 
-The weights learned during Behaviour Cloning get copied straight into these layers, and the BC model's output layer becomes the starting point for the Actor. So when reinforcement learning kicks in, the agent isn't starting from zero — it already has a policy shaped by human demonstrations.
+This means that when RL training begins, the agent already has some idea of how to play the game. It doesn't have to spend the first part of training randomly figuring out how to move, climb, or jump.
 
 In short, instead of:
 
@@ -174,69 +170,44 @@ In short, instead of:
 
 our pipeline looks like:
 
-`Human Gameplay → Behaviour Cloning → Pretrained Policy → Actor-Critic RL → Learning Through Experience`
+![Pipeline](media/pipeline.png)
 
 ### The Actor and the Critic
 
 After the shared feature extractor, the network splits into two heads:
 
-```
-                   503-D State
-                        ↓
-              Shared Feature Extractor
-                        ↓
-                 256 → ReLU → 128
-                    ↙           ↘
-                Actor          Critic
-                   ↓             ↓
-              7 Actions      V(s): Value
+![SharedFeatureExtractor](media/actor_critic-head.png)
 
-```
+The Actor is the one deciding what to actualy do — it produces a score for all seven possible actions, runs them through Softmax layer to turn them into probability distribution, and samples one.
 
-The Actor is the one deciding what to actually do — it scores all seven possible actions, runs them through Softmax to turn them into probabilities, and samples one.
+![Softmax](media/softmax.png)
 
-The Critic just watches and judges. It outputs a single number, V(s), which is its estimate of how good the current state is.
+The Critic just watches and judges. Instead of choosing an action, it estimates how good the current state is by producing a value, V(s).
 
-Simply put: the Actor decides what to do, the Critic decides how well it's going.
+Simply put: the Actor decides what to do, the Critic decides how that action has affected the state.
 
 ### Preventing Invalid Actions
 
 Not every action makes sense in every situation — the agent obviously can't climb up or down when it isn't near a ladder, and it can't jump if it's not standing on a bridge.
 
-To stop the agent from wasting time exploring actions that are physically impossible, we use action masking. Before the Actor's raw scores get turned into probabilities, any invalid action gets pushed down to an extremely low value:
+To stop the agent from wasting time exploring actions that are physically impossible, we use action masking. Before converting the Actor's output into probabilities, invalid actions are assigned a very large negative value.:
 
 ```
 Not near a ladder     →  Mask UP and DOWN
 Not on a bridge        →  Mask JUMP LEFT and JUMP RIGHT
 
 ```
+After masking, the remaining valid actions are converted into probabilities and the Actor selects from them.
 
-Whatever's left gets converted into probabilities, and the Actor samples from that — so it's never even given the option to try something that can't work.
+This prevents the agent from wasting exploration on actions that physically cannot work in the current state.
 
 ### The Reinforcement Learning Loop
 
 At every step, here's what the agent goes through:
 
-```
-Current State
-      ↓
-Actor predicts action probabilities
-      ↓
-Invalid actions are masked
-      ↓
-Action is sampled
-      ↓
-Action is executed in the game
-      ↓
-Next State + Reward
-      ↓
-Critic evaluates the transition
-      ↓
-Actor and Critic are updated
+![rl_loop](media/rl_loop.png)
 
-```
-
-The agent's still looking at the same 503-dimensional state it used during Behaviour Cloning — nothing changes there. Once it picks and executes an action, we work out the resulting state and calculate the reward.
+The agent's still looking at the same 503-dimensional state it used during Behaviour Cloning . After an action is selected and executed, the environment gives us the next state along with a reward based on what happened. That experience is then used to update both the Actor and the Critic.
 
 ### Designing the Reward
 
@@ -266,8 +237,7 @@ The existing in-game scoring already rewards jumping over barrels, so the agent 
 
 ### Temporal Difference Learning
 
-To update the Critic, we lean on Temporal Difference (TD) learning. The Critic estimates the value of the current state, V(s), and compares it against a target built from the reward it just got plus its estimate of the next state's value.
-
+To update the Critic, we lean on Temporal Difference (TD) learning. The Critic estimates the value of the current state, V(s), we then compare this estimate with a target based on the reward the agent just received and the estimated value of the next state.
 For a non-terminal state:
 
 `TD Target = Reward + γV(s')`
