@@ -54,6 +54,19 @@ def get_state(mario, all_barrels, ladders, screen, CELL_SIZE, GRID_SIZE, ENV_GRI
 
     return state
 
+
+def get_princess_features(mario, princess_rect, screen_width, screen_height):
+    mario_x = mario.rect.centerx
+    mario_y = mario.rect.centery
+
+    princess_x = princess_rect.centerx
+    princess_y = princess_rect.centery
+
+    dx = (princess_x - mario_x) / screen_width
+    dy = (princess_y - mario_y) / screen_height
+
+    return [dx, dy]
+
 def flatten(grid):
     data = []
 
@@ -63,4 +76,3 @@ def flatten(grid):
     return data
 
 
-     

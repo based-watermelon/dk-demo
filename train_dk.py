@@ -1,4 +1,5 @@
 # need to add more ladders according to original DK
+# main 1 : needs extra features added according to the new princess grid and other parameters. preserve csv saving logic of this current file
 import random
 import pygame
 from sys import exit

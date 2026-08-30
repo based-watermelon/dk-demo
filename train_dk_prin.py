@@ -2,108 +2,35 @@
 import random
 import pygame
 from sys import exit
-from feature_extraction import get_state
+from feature_extraction import get_state, get_princess_features
 import csv
-import torch
-import torch.nn as nn
+import os
+os.makedirs("data", exist_ok=True)
 pygame.init()
-
-# ---------------------------------------------------------------------------
-# Autoplay config
-# ---------------------------------------------------------------------------
-AUTOPLAY = True                 # False = normal keyboard play / data collection
-MODEL_PATH = "bc_policy.pt"     # path to the trained checkpoint from train_bc.py
-LOG_AUTOPLAY_DATA = False       # True if you still want to write a CSV while autoplaying
-
-# Re-query the model every N frames instead of every frame, and hold that
-# action in between. This MUST match the FRAME_SKIP used when the training
-# data was collected -- the model has only ever seen states this sparse, so
-# querying it every single frame (60Hz) asks it to be temporally smoother
-# than it was trained to be, which shows up as flickery/erratic behavior
-# whenever the scene changes fast (e.g. a barrel nearby).
-ACTION_HOLD_FRAMES = 4
-
-STATE_DIM = 500
-N_ACTIONS = 7
-
-
-class BCPolicy(nn.Module):
-    """Must match the architecture in train_bc.py exactly, or load_state_dict will fail."""
-    def __init__(self, input_dim=STATE_DIM, hidden=(256, 128), n_actions=N_ACTIONS, dropout=0.2):
-        super().__init__()
-        layers = []
-        prev = input_dim
-        for h in hidden:
-            layers += [nn.Linear(prev, h), nn.ReLU(), nn.Dropout(dropout)]
-            prev = h
-        layers.append(nn.Linear(prev, n_actions))
-        self.net = nn.Sequential(*layers)
-
-    def forward(self, x):
-        return self.net(x)
-
-
-def action_to_keys(action):
-    """
-    Turns a predicted action int (0-6) into the same key-state dict shape
-    that pygame.key.get_pressed() returns, so Mario.update() doesn't need
-    to know or care whether it's being driven by a human or the model.
-    """
-    keys = {
-        pygame.K_LEFT: False,
-        pygame.K_RIGHT: False,
-        pygame.K_UP: False,
-        pygame.K_DOWN: False,
-        pygame.K_SPACE: False,
-    }
-    if action == 0:      # left
-        keys[pygame.K_LEFT] = True
-    elif action == 1:    # right
-        keys[pygame.K_RIGHT] = True
-    elif action == 2:    # jump-left
-        keys[pygame.K_LEFT] = True
-        keys[pygame.K_SPACE] = True
-    elif action == 3:    # jump-right
-        keys[pygame.K_RIGHT] = True
-        keys[pygame.K_SPACE] = True
-    elif action == 4:    # up
-        keys[pygame.K_UP] = True
-    elif action == 5:    # down
-        keys[pygame.K_DOWN] = True
-    # action == 6 (idle) -> all False, nothing to set
-    return keys
-
-
-def mask_invalid_actions(logits, on_ladder_ranged, on_bridge):
-    """
-    Zero out actions the game engine would ignore anyway (Up/Down only do
-    anything near a ladder; jump only does anything while grounded on a
-    bridge), so the model can't 'waste' a prediction on a no-op. This is a
-    hard rule enforced on top of the learned policy, not a training fix --
-    it guarantees the agent never freezes into an invalid action even if
-    the network itself hasn't fully learned the game's gating logic yet.
-    """
-    masked = logits.clone()
-    if not on_ladder_ranged:
-        masked[0, 4] = -1e9   # up
-        masked[0, 5] = -1e9   # down
-    if not on_bridge:
-        masked[0, 2] = -1e9   # jump-left
-        masked[0, 3] = -1e9   # jump-right
-    return masked
-
 
 # init variables
 W_WIDTH = 800
 W_HEIGHT = 800
 screen = pygame.display.set_mode((W_WIDTH, W_HEIGHT))
-pygame.display.set_caption("Barrel-ly Learning" + (" [AUTOPLAY]" if AUTOPLAY else ""))
+pygame.display.set_caption("Barrel-ly Learning")
 clock = pygame.time.Clock()
 font = pygame.font.SysFont(None,30)
 
 GRID_SIZE = 7
 CELL_SIZE = 40
 ENV_GRID = 20
+
+MAX_EPISODES = 10
+episode_num = 0
+
+def new_csv_writer(ep):
+    f = open(f"data/episode_{ep:03d}.csv", "w", newline="")
+    w = csv.writer(f)
+    header = [f"s{i}" for i in range(503)] + ["action", "reward"] + [f"next_s{i}" for i in range(503)]
+    w.writerow(header)
+    return f, w
+
+csv_file, writer = new_csv_writer(episode_num)
 
 sprites = [
     "assets/marion.png",
@@ -222,18 +149,12 @@ class Mario:
         self.counter = 0
         self.image = self.right_walk[self.index]
 
-    def update(self, GAME_OVER, SCORE, all_barrels, action_override=None):
+    def update(self, GAME_OVER, SCORE, all_barrels):
         walk_cooldown = 7
         dx = 0
         dy = 0
         if GAME_OVER == 0 :
-            # AUTOPLAY: use the model's predicted action instead of the keyboard.
-            # action_to_keys() returns a dict shaped like pygame's key-state
-            # object, so every keys[pygame.K_...] lookup below works unchanged.
-            if action_override is not None:
-                keys = action_to_keys(action_override)
-            else:
-                keys = pygame.key.get_pressed()
+            keys = pygame.key.get_pressed()
             on_ladder_ranged = canMarioClimb(ladders, self.rect) == True
             on_bridge = isOnBridge(bridges, self.rect)
             
@@ -369,6 +290,7 @@ class Barrel(pygame.sprite.Sprite):
     
     def update(self):
         self.gravity = 2  # Simulate gravity for the barrel
+        #self.check_collision_with_ladders()
         self.check_collision_with_ladders()
         if not self.on_ladder:
             self.check_collision_with_bridges()
@@ -470,26 +392,14 @@ all_barrels = pygame.sprite.Group()
 SPAWN_BARREL_EVENT = pygame.USEREVENT + 1
 pygame.time.set_timer(SPAWN_BARREL_EVENT, random.randint(2000, 5000)) 
 
-# --- load the trained policy for autoplay ---------------------------------
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-policy = None
-if AUTOPLAY:
-    policy = BCPolicy().to(device)
-    policy.load_state_dict(torch.load(MODEL_PATH, map_location=device))
-    policy.eval()
-    print(f"Autoplay ON. Loaded {MODEL_PATH} on {device}.")
-# ---------------------------------------------------------------------------
 
-if LOG_AUTOPLAY_DATA:
-    csv_file = open("autoplay_log.csv", "w", newline="")
-    writer = csv.writer(csv_file)
-    header = [f"s{i}" for i in range(500)] + ["action", "reward"] + [f"next_s{i}" for i in range(500)]
-    writer.writerow(header)
+
 
 previous_score = SCORE
 previous_lives = LIVES
-autoplay_frame_count = 0
-held_action = 6  # start idle
+
+FRAME_SKIP = 4
+frame_count = 0
 
 
 running = True
@@ -498,8 +408,6 @@ while running:
     
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            if LOG_AUTOPLAY_DATA:
-                csv_file.close()
             pygame.quit()
             exit()
         
@@ -532,34 +440,18 @@ while running:
         screen.blit(dk, (50, 200))
     screen.blit(lots_of_barrels, (5, 200))
 
+    #vision_grid(CELL_SIZE,GRID_SIZE,mario,screen,all_barrels,ladders)
+    #agent_grid(CELL_SIZE,ENV_GRID,mario,screen)
+
     state = get_state(mario, all_barrels, ladders,screen, CELL_SIZE, GRID_SIZE, ENV_GRID)
-    state.extend([int(mario.is_climbing),int(canMarioClimb(ladders,mario.rect))])
-
-    # decide the action: model prediction if autoplaying, keyboard otherwise.
-    # Only re-predict every ACTION_HOLD_FRAMES frames (matching training's
-    # FRAME_SKIP) -- holding the action in between avoids flickery decisions
-    # in fast-changing moments like a barrel entering the vision grid.
-    if AUTOPLAY:
-        on_ladder_ranged = canMarioClimb(ladders, mario.rect)
-        on_bridge = isOnBridge(bridges, mario.rect)
-
-        if autoplay_frame_count % ACTION_HOLD_FRAMES == 0:
-            with torch.no_grad():
-                state_t = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
-                logits = policy(state_t)
-                logits = mask_invalid_actions(logits, on_ladder_ranged, on_bridge)
-                held_action = logits.argmax(dim=1).item()
-        autoplay_frame_count += 1
-        action = held_action
-    else:
-        action = get_action()
+    pdx, pdy = get_princess_features(mario, princess_rect, W_WIDTH, W_HEIGHT)
+    state.extend([int(mario.is_climbing), int(canMarioClimb(ladders, mario.rect)), pdx, pdy, mario.direction])
+    #print(len(state)) #to verify if %500
+    action = get_action()
 
 
     if GAME_OVER in (0, -1):
-            GAME_OVER, SCORE = mario.update(
-                GAME_OVER, SCORE, all_barrels,
-                action_override=action if AUTOPLAY else None,
-            )
+            GAME_OVER, SCORE = mario.update(GAME_OVER, SCORE, all_barrels)
             if GAME_OVER == 0:
                 all_barrels.update()
             all_barrels.draw(screen)
@@ -582,40 +474,89 @@ while running:
                     pygame.time.set_timer(SPAWN_BARREL_EVENT, random.randint(2000, 5000))
                     GAME_OVER = 0
 
-            if LOG_AUTOPLAY_DATA:
-                next_state = get_state(
-                                    mario,
-                                    all_barrels,
-                                    ladders,
-                                    screen,
-                                    CELL_SIZE,
-                                    GRID_SIZE,
-                                    ENV_GRID,
-                                )
-                next_state.extend([
-                    int(mario.is_climbing),
-                    int(canMarioClimb(ladders, mario.rect))
-                ])
-                reward = get_reward(
-                                        previous_score,
-                                        SCORE,
-                                        previous_lives,
-                                        LIVES,
-                                        GAME_OVER,
-                                    )
-                writer.writerow(state + [action, reward] + next_state)
+            next_state = get_state(
+                                mario,
+                                all_barrels,
+                                ladders,
+                                screen,
+                                CELL_SIZE,
+                                GRID_SIZE,
+                                ENV_GRID,
+                            )
+            next_pdx, next_pdy = get_princess_features(
+            mario,
+            princess_rect,
+            W_WIDTH,
+            W_HEIGHT
+                            )
 
+            next_state.extend([
+                int(mario.is_climbing),
+                int(canMarioClimb(ladders, mario.rect)),
+                next_pdx,
+                next_pdy,
+                mario.direction
+            ])
+
+            reward = get_reward(
+                                    previous_score,
+                                    SCORE,
+                                    previous_lives,
+                                    LIVES,
+                                    GAME_OVER,
+                                )   
+
+            frame_count+=1
+            if frame_count % FRAME_SKIP == 0:
+                writer.writerow(state + [action, reward] + next_state)
             previous_score = SCORE
-            previous_lives = LIVES
+            previous_lives = LIVES 
+            
+    keys = pygame.key.get_pressed()
 
     if GAME_OVER == -2:
             show_end_screen("GAME OVER", "red")
+            if keys[pygame.K_RETURN]:
+                csv_file.close()
+                episode_num += 1
+                if episode_num >= MAX_EPISODES:
+                    running = False
+                else:
+                    csv_file, writer = new_csv_writer(episode_num)
+                    mario.reset(*MARIO_INITIAL)
+                    all_barrels.empty()
+                    LIVES = 3
+                    SCORE = 0
+                    GAME_OVER = 0
+                    previous_score = 0
+                    previous_lives = LIVES
+                    frame_count = 0
+                    pygame.time.set_timer(SPAWN_BARREL_EVENT, random.randint(2000, 5000))
     elif GAME_OVER == 1:
             show_end_screen("YOU WIN!", "gold")
+            if keys[pygame.K_RETURN]:
+                csv_file.close()
+                episode_num += 1
+                if episode_num >= MAX_EPISODES:
+                    running = False
+                else:
+                    csv_file, writer = new_csv_writer(episode_num)
+                    mario.reset(*MARIO_INITIAL)
+                    all_barrels.empty()
+                    LIVES = 3
+                    SCORE = 0
+                    GAME_OVER = 0
+                    previous_score = 0
+                    previous_lives = LIVES
+                    frame_count = 0
+                    game_won = False
+                    princess_image = princess_help
+                    pygame.time.set_timer(SPAWN_BARREL_EVENT, random.randint(2000, 5000))
     else:
             screen.blit(lives_text, (700, 10))
             score_text = font.render(f"Score: {SCORE}", True, "white")
             screen.blit(score_text, (10, 10))
-
     clock.tick(60)
     pygame.display.update()
+csv_file.close()
+pygame.quit()

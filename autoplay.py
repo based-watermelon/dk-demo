@@ -2,7 +2,7 @@
 import random
 import pygame
 from sys import exit
-from feature_extraction import get_state
+from feature_extraction import get_state, get_princess_features
 import csv
 import torch
 import torch.nn as nn
@@ -11,7 +11,7 @@ pygame.init()
 AUTOPLAY = True                 
 MODEL_PATH = "bc_policy.pt"     
 
-STATE_DIM = 500
+STATE_DIM = 503
 N_ACTIONS = 7
 
 HOLD_FRAMES = 4 # SHOULD BE SAME AS FRAME_SKIP !!!
@@ -501,7 +501,21 @@ while running:
     screen.blit(lots_of_barrels, (5, 200))
 
     state = get_state(mario, all_barrels, ladders,screen, CELL_SIZE, GRID_SIZE, ENV_GRID)
-    state.extend([int(mario.is_climbing),int(canMarioClimb(ladders,mario.rect))])
+
+    pdx, pdy = get_princess_features(
+        mario,
+        princess_rect,
+        W_WIDTH,
+        W_HEIGHT
+    )
+
+    state.extend([
+        int(mario.is_climbing),
+        int(canMarioClimb(ladders,mario.rect)),
+        pdx,
+        pdy,
+        mario.direction
+    ])
 
     # deciding action: model or user
     if AUTOPLAY:

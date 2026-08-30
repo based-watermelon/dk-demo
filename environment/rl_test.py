@@ -1,34 +1,26 @@
 # need to add more ladders according to original DK
+import os
 import random
 import pygame
-from sys import exit
-from feature_extraction import get_state
+import sys
+from feature_extraction import get_state, get_princess_features
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import csv
 import torch
 import torch.nn as nn
 pygame.init()
+from model.actor_critic import ActorCritic
 
-# ---------------------------------------------------------------------------
-# Autoplay config
-# ---------------------------------------------------------------------------
-AUTOPLAY = True                 # False = normal keyboard play / data collection
-MODEL_PATH = "bc_policy.pt"     # path to the trained checkpoint from train_bc.py
-LOG_AUTOPLAY_DATA = False       # True if you still want to write a CSV while autoplaying
+AUTOPLAY = True                 
+MODEL_PATH = "../model/bc_policy.pt"     
 
-# Re-query the model every N frames instead of every frame, and hold that
-# action in between. This MUST match the FRAME_SKIP used when the training
-# data was collected -- the model has only ever seen states this sparse, so
-# querying it every single frame (60Hz) asks it to be temporally smoother
-# than it was trained to be, which shows up as flickery/erratic behavior
-# whenever the scene changes fast (e.g. a barrel nearby).
-ACTION_HOLD_FRAMES = 4
-
-STATE_DIM = 500
+STATE_DIM = 503
 N_ACTIONS = 7
+
+HOLD_FRAMES = 1 # experiment with this 
 
 
 class BCPolicy(nn.Module):
-    """Must match the architecture in train_bc.py exactly, or load_state_dict will fail."""
     def __init__(self, input_dim=STATE_DIM, hidden=(256, 128), n_actions=N_ACTIONS, dropout=0.2):
         super().__init__()
         layers = []
@@ -44,11 +36,6 @@ class BCPolicy(nn.Module):
 
 
 def action_to_keys(action):
-    """
-    Turns a predicted action int (0-6) into the same key-state dict shape
-    that pygame.key.get_pressed() returns, so Mario.update() doesn't need
-    to know or care whether it's being driven by a human or the model.
-    """
     keys = {
         pygame.K_LEFT: False,
         pygame.K_RIGHT: False,
@@ -58,38 +45,35 @@ def action_to_keys(action):
     }
     if action == 0:      # left
         keys[pygame.K_LEFT] = True
+        print("left")
     elif action == 1:    # right
         keys[pygame.K_RIGHT] = True
-    elif action == 2:    # jump-left
+        print("right")
+    elif action == 2:    # jump+left
         keys[pygame.K_LEFT] = True
         keys[pygame.K_SPACE] = True
-    elif action == 3:    # jump-right
+        print("leftjump")
+    elif action == 3:    # jump+right
         keys[pygame.K_RIGHT] = True
         keys[pygame.K_SPACE] = True
+        print("rightjump")
     elif action == 4:    # up
         keys[pygame.K_UP] = True
+        print("up")
     elif action == 5:    # down
         keys[pygame.K_DOWN] = True
-    # action == 6 (idle) -> all False, nothing to set
+        print("down") 
+        # else still
     return keys
 
-
-def mask_invalid_actions(logits, on_ladder_ranged, on_bridge):
-    """
-    Zero out actions the game engine would ignore anyway (Up/Down only do
-    anything near a ladder; jump only does anything while grounded on a
-    bridge), so the model can't 'waste' a prediction on a no-op. This is a
-    hard rule enforced on top of the learned policy, not a training fix --
-    it guarantees the agent never freezes into an invalid action even if
-    the network itself hasn't fully learned the game's gating logic yet.
-    """
+def invalid_actions(logits, on_ladder_ranged, on_bridge):
     masked = logits.clone()
     if not on_ladder_ranged:
         masked[0, 4] = -1e9   # up
         masked[0, 5] = -1e9   # down
     if not on_bridge:
-        masked[0, 2] = -1e9   # jump-left
-        masked[0, 3] = -1e9   # jump-right
+        masked[0, 2] = -1e9   # jump+left
+        masked[0, 3] = -1e9   # jump+right
     return masked
 
 
@@ -162,7 +146,7 @@ ladders = [
 def canMarioClimb(ladders, rect):
     for ladder in ladders:
         ladder_center_x = ladder.centerx
-        if abs(rect.centerx - ladder_center_x) <= 6:
+        if abs(rect.centerx - ladder_center_x) <= 9:
             if ladder.top <= rect.bottom <= ladder.bottom :
                 return True
     return False
@@ -170,7 +154,6 @@ def isOnBridge(bridges, mrect):
     probe = pygame.Rect(mrect.x, mrect.y, mrect.width, mrect.height + GROUND_TOLERANCE)
     return probe.collidelist(bridges) != -1
 
-#comment out if not needed during training
 def show_end_screen(text, color):
     overlay = pygame.Surface((W_WIDTH, W_HEIGHT))
     overlay.set_alpha(180)
@@ -227,9 +210,6 @@ class Mario:
         dx = 0
         dy = 0
         if GAME_OVER == 0 :
-            # AUTOPLAY: use the model's predicted action instead of the keyboard.
-            # action_to_keys() returns a dict shaped like pygame's key-state
-            # object, so every keys[pygame.K_...] lookup below works unchanged.
             if action_override is not None:
                 keys = action_to_keys(action_override)
             else:
@@ -470,26 +450,19 @@ all_barrels = pygame.sprite.Group()
 SPAWN_BARREL_EVENT = pygame.USEREVENT + 1
 pygame.time.set_timer(SPAWN_BARREL_EVENT, random.randint(2000, 5000)) 
 
-# --- load the trained policy for autoplay ---------------------------------
+#loading policy for autoplay
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 policy = None
 if AUTOPLAY:
-    policy = BCPolicy().to(device)
-    policy.load_state_dict(torch.load(MODEL_PATH, map_location=device))
+    policy = ActorCritic().to(device)
+    policy.load_bc_weights(MODEL_PATH)
     policy.eval()
-    print(f"Autoplay ON. Loaded {MODEL_PATH} on {device}.")
-# ---------------------------------------------------------------------------
-
-if LOG_AUTOPLAY_DATA:
-    csv_file = open("autoplay_log.csv", "w", newline="")
-    writer = csv.writer(csv_file)
-    header = [f"s{i}" for i in range(500)] + ["action", "reward"] + [f"next_s{i}" for i in range(500)]
-    writer.writerow(header)
+    print(f"Actor-Critic mode: Loaded BC weights from {MODEL_PATH}.")
 
 previous_score = SCORE
 previous_lives = LIVES
 autoplay_frame_count = 0
-held_action = 6  # start idle
+held_action = 6
 
 
 running = True
@@ -498,8 +471,6 @@ while running:
     
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            if LOG_AUTOPLAY_DATA:
-                csv_file.close()
             pygame.quit()
             exit()
         
@@ -533,22 +504,43 @@ while running:
     screen.blit(lots_of_barrels, (5, 200))
 
     state = get_state(mario, all_barrels, ladders,screen, CELL_SIZE, GRID_SIZE, ENV_GRID)
-    state.extend([int(mario.is_climbing),int(canMarioClimb(ladders,mario.rect))])
 
-    # decide the action: model prediction if autoplaying, keyboard otherwise.
-    # Only re-predict every ACTION_HOLD_FRAMES frames (matching training's
-    # FRAME_SKIP) -- holding the action in between avoids flickery decisions
-    # in fast-changing moments like a barrel entering the vision grid.
+    pdx, pdy = get_princess_features(
+        mario,
+        princess_rect,
+        W_WIDTH,
+        W_HEIGHT
+    )
+
+    state.extend([
+        int(mario.is_climbing),
+        int(canMarioClimb(ladders,mario.rect)),
+        pdx,
+        pdy,
+        mario.direction
+    ])
+
+    # deciding action: model or user
     if AUTOPLAY:
         on_ladder_ranged = canMarioClimb(ladders, mario.rect)
         on_bridge = isOnBridge(bridges, mario.rect)
 
-        if autoplay_frame_count % ACTION_HOLD_FRAMES == 0:
+        if autoplay_frame_count % HOLD_FRAMES == 0:
             with torch.no_grad():
-                state_t = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
-                logits = policy(state_t)
-                logits = mask_invalid_actions(logits, on_ladder_ranged, on_bridge)
-                held_action = logits.argmax(dim=1).item()
+                state_t = torch.tensor(
+                    state, dtype=torch.float32, device=device
+                ).unsqueeze(0)
+
+                logits, state_value = policy(state_t)
+
+                logits = invalid_actions(
+                    logits, on_ladder_ranged, on_bridge
+                )
+
+                probabilities = torch.softmax(logits, dim=-1)
+                distribution = torch.distributions.Categorical(probabilities)
+
+                held_action = distribution.sample().item()
         autoplay_frame_count += 1
         action = held_action
     else:
@@ -575,35 +567,13 @@ while running:
             if GAME_OVER == -1:
                 LIVES -= 1
                 if LIVES <= 0:
-                    GAME_OVER = -2       # terminal game-over state
+                    GAME_OVER = -2       # terminal gameover state
                 else:
                     mario.reset(*MARIO_INITIAL)
                     all_barrels.empty()
                     pygame.time.set_timer(SPAWN_BARREL_EVENT, random.randint(2000, 5000))
                     GAME_OVER = 0
 
-            if LOG_AUTOPLAY_DATA:
-                next_state = get_state(
-                                    mario,
-                                    all_barrels,
-                                    ladders,
-                                    screen,
-                                    CELL_SIZE,
-                                    GRID_SIZE,
-                                    ENV_GRID,
-                                )
-                next_state.extend([
-                    int(mario.is_climbing),
-                    int(canMarioClimb(ladders, mario.rect))
-                ])
-                reward = get_reward(
-                                        previous_score,
-                                        SCORE,
-                                        previous_lives,
-                                        LIVES,
-                                        GAME_OVER,
-                                    )
-                writer.writerow(state + [action, reward] + next_state)
 
             previous_score = SCORE
             previous_lives = LIVES
